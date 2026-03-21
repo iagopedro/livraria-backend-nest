@@ -35,7 +35,9 @@ variables:
   imageTag: '$(Build.BuildId)'
 
 pool:
-  vmImage: 'ubuntu-latest'
+  # Troque para 'vmImage: ubuntu-latest' quando o paralelismo gratuito for aprovado
+  # Por enquanto usa o agente self-hosted instalado na sua máquina
+  name: Default
 
 stages:
   # ── ESTÁGIO 1: BUILD & TEST ──────────────────────────────────────────────────
