@@ -1,0 +1,122 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# azure-pipelines.yml — Pipeline CI/CD para Azure DevOps
+#
+# Fluxo:
+#   1. Disparado a cada push na branch 'main'
+#   2. Instala dependências e compila o TypeScript
+#   3. Executa os testes
+#   4. Constrói a imagem Docker (sem Docker local — o agente faz tudo)
+#   5. Faz push para o Azure Container Registry (ACR)
+#   6. Faz deploy no Azure Container Apps (escala a zero = custo zero ocioso)
+#
+# Pré-requisitos no Azure DevOps (configurar antes de rodar pela 1ª vez):
+#   • Service Connection "AzureServiceConnection" → tipo Azure Resource Manager
+#   • Service Connection "AzureContainerRegistry"  → tipo Docker Registry → ACR
+#   • Variáveis de grupo "livraria-prod-vars" (Library > Variable Groups):
+#       DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_NAME,
+#       DB_TRUST_CERT, CORS_ORIGINS
+# ──────────────────────────────────────────────────────────────────────────────
+
+trigger:
+  branches:
+    include:
+      - main
+
+# Impede deploys simultâneos caso dois pushes ocorram muito próximos
+concurrency:
+  group: 'production-deploy'
+  cancelInProgress: false
+
+variables:
+  # ── Preencha com os seus valores antes do primeiro run ──────────────────────
+  # Nome do Azure Container Registry (sem .azurecr.io)
+  acrName: 'livrariaacr'
+  # Nome do Resource Group onde todos os recursos estão
+  resourceGroup: 'rg-livraria'
+  # Nome do Container App criado no Azure
+  containerAppName: 'livraria-backend'
+  # ────────────────────────────────────────────────────────────────────────────
+  imageName: 'livraria-backend'
+  imageTag: '$(Build.BuildId)'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  # ── ESTÁGIO 1: BUILD & TEST ──────────────────────────────────────────────────
+  - stage: BuildTest
+    displayName: 'Build e Testes'
+    jobs:
+      - job: BuildTestJob
+        displayName: 'Compilar e testar'
+        steps:
+          - task: NodeTool@0
+            displayName: 'Instalar Node.js 20'
+            inputs:
+              versionSpec: '20.x'
+
+          - script: npm ci
+            displayName: 'Instalar dependências (npm ci)'
+
+          - script: npm run build
+            displayName: 'Compilar TypeScript → dist/'
+
+          - script: npm test -- --passWithNoTests --forceExit
+            displayName: 'Executar testes unitários'
+
+  # ── ESTÁGIO 2: DOCKER BUILD & PUSH ──────────────────────────────────────────
+  - stage: DockerPush
+    displayName: 'Build e Push da Imagem Docker'
+    dependsOn: BuildTest
+    condition: succeeded()
+    jobs:
+      - job: DockerJob
+        displayName: 'Build no agente e push para ACR'
+        steps:
+          # O agente Ubuntu já tem Docker instalado — sem necessidade de Docker local
+          - task: Docker@2
+            displayName: 'Build e Push para ACR'
+            inputs:
+              command: buildAndPush
+              repository: '$(imageName)'
+              dockerfile: 'Dockerfile'
+              containerRegistry: 'AzureContainerRegistry'  # Service Connection Docker Registry
+              tags: |
+                $(imageTag)
+                latest
+
+  # ── ESTÁGIO 3: DEPLOY ────────────────────────────────────────────────────────
+  - stage: Deploy
+    displayName: 'Deploy no Azure Container Apps'
+    dependsOn: DockerPush
+    condition: succeeded()
+    # Carrega variáveis sensíveis do grupo de variáveis (Library)
+    variables:
+      - group: livraria-prod-vars
+    jobs:
+      - deployment: DeployJob
+        displayName: 'Atualizar Container App'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                # Atualiza a imagem do Container App para a nova tag
+                - task: AzureContainerApps@1
+                  displayName: 'Deploy → Azure Container Apps'
+                  inputs:
+                    azureSubscription: 'AzureServiceConnection'  # Service Connection ARM
+                    acrName: '$(acrName)'
+                    containerAppName: '$(containerAppName)'
+                    resourceGroup: '$(resourceGroup)'
+                    imageToDeploy: '$(acrName).azurecr.io/$(imageName):$(imageTag)'
+                    # Injeta variáveis de ambiente no container em runtime
+                    environmentVariables: >
+                      NODE_ENV=production
+                      DB_HOST=$(DB_HOST)
+                      DB_PORT=$(DB_PORT)
+                      DB_USERNAME=$(DB_USERNAME)
+                      DB_PASSWORD=$(DB_PASSWORD)
+                      DB_NAME=$(DB_NAME)
+                      DB_TRUST_CERT=$(DB_TRUST_CERT)
+                      CORS_ORIGINS=$(CORS_ORIGINS)
