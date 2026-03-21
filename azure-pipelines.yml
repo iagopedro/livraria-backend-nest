@@ -89,29 +89,25 @@ stages:
     variables:
       - group: livraria-prod-vars
     jobs:
-      - deployment: DeployJob
+      - job: DeployJob
         displayName: 'Atualizar Container App'
-        environment: 'production'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                # Atualiza a imagem do Container App para a nova tag
-                - task: AzureContainerApps@1
-                  displayName: 'Deploy → Azure Container Apps'
-                  inputs:
-                    azureSubscription: 'AzureServiceConnection'  # Service Connection ARM
-                    acrName: '$(acrName)'
-                    containerAppName: '$(containerAppName)'
-                    resourceGroup: '$(resourceGroup)'
-                    imageToDeploy: '$(acrName).azurecr.io/$(imageName):$(imageTag)'
-                    # Injeta variáveis de ambiente no container em runtime
-                    environmentVariables: >
-                      NODE_ENV=production
-                      DB_HOST=$(DB_HOST)
-                      DB_PORT=$(DB_PORT)
-                      DB_USERNAME=$(DB_USERNAME)
-                      DB_PASSWORD=$(DB_PASSWORD)
-                      DB_NAME=$(DB_NAME)
-                      DB_TRUST_CERT=$(DB_TRUST_CERT)
-                      CORS_ORIGINS=$(CORS_ORIGINS)
+        steps:
+            # Atualiza a imagem do Container App para a nova tag
+            - task: AzureContainerApps@1
+              displayName: 'Deploy → Azure Container Apps'
+              inputs:
+                azureSubscription: 'AzureServiceConnection'  # Service Connection ARM
+                acrName: '$(acrName)'
+                containerAppName: '$(containerAppName)'
+                resourceGroup: '$(resourceGroup)'
+                imageToDeploy: '$(acrName).azurecr.io/$(imageName):$(imageTag)'
+                # Injeta variáveis de ambiente no container em runtime
+                environmentVariables: >
+                  NODE_ENV=production
+                  DB_HOST=$(DB_HOST)
+                  DB_PORT=$(DB_PORT)
+                  DB_USERNAME=$(DB_USERNAME)
+                  DB_PASSWORD=$(DB_PASSWORD)
+                  DB_NAME=$(DB_NAME)
+                  DB_TRUST_CERT=$(DB_TRUST_CERT)
+                  CORS_ORIGINS=$(CORS_ORIGINS)
