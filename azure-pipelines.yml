@@ -68,19 +68,22 @@ stages:
     condition: succeeded()
     jobs:
       - job: DockerJob
-        displayName: 'Build no agente e push para ACR'
+        displayName: 'Build remoto no ACR (sem Docker local)'
         steps:
-          # O agente Ubuntu já tem Docker instalado — sem necessidade de Docker local
-          - task: Docker@2
-            displayName: 'Build e Push para ACR'
+          # az acr build envia o código para o ACR e faz o build na nuvem.
+          # Não requer Docker instalado no agente.
+          - task: AzureCLI@2
+            displayName: 'Build e Push para ACR via az acr build'
             inputs:
-              command: buildAndPush
-              repository: '$(imageName)'
-              dockerfile: 'Dockerfile'
-              containerRegistry: 'AzureContainerRegistry'  # Service Connection Docker Registry
-              tags: |
-                $(imageTag)
-                latest
+              azureSubscription: 'AzureServiceConnection'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az acr build \
+                  --registry $(acrName) \
+                  --image $(imageName):$(imageTag) \
+                  --image $(imageName):latest \
+                  .
 
   # ── ESTÁGIO 3: DEPLOY ────────────────────────────────────────────────────────
   - stage: Deploy
