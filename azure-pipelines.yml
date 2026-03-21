@@ -76,13 +76,13 @@ stages:
             displayName: 'Build e Push para ACR via az acr build'
             inputs:
               azureSubscription: 'AzureServiceConnection'
-              scriptType: 'bash'
+              scriptType: 'ps'
               scriptLocation: 'inlineScript'
               inlineScript: |
-                az acr build \
-                  --registry $(acrName) \
-                  --image $(imageName):$(imageTag) \
-                  --image $(imageName):latest \
+                az acr build `
+                  --registry $(acrName) `
+                  --image $(imageName):$(imageTag) `
+                  --image $(imageName):latest `
                   .
 
   # ── ESTÁGIO 3: DEPLOY ────────────────────────────────────────────────────────
