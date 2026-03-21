@@ -22,11 +22,6 @@ trigger:
     include:
       - main
 
-# Impede deploys simultâneos caso dois pushes ocorram muito próximos
-concurrency:
-  group: 'production-deploy'
-  cancelInProgress: false
-
 variables:
   # ── Preencha com os seus valores antes do primeiro run ──────────────────────
   # Nome do Azure Container Registry (sem .azurecr.io)
