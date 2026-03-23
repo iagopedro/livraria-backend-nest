@@ -97,22 +97,36 @@ stages:
       - job: DeployJob
         displayName: 'Atualizar Container App'
         steps:
-            # Atualiza a imagem do Container App para a nova tag
-            - task: AzureContainerApps@1
-              displayName: 'Deploy → Azure Container Apps'
-              inputs:
-                azureSubscription: 'AzureServiceConnection'  # Service Connection ARM
-                acrName: '$(acrName)'
-                containerAppName: '$(containerAppName)'
-                resourceGroup: '$(resourceGroup)'
-                imageToDeploy: '$(acrName).azurecr.io/$(imageName):$(imageTag)'
-                # Injeta variáveis de ambiente no container em runtime
-                environmentVariables: >
-                  NODE_ENV=production
-                  DB_HOST=$(DB_HOST)
-                  DB_PORT=$(DB_PORT)
-                  DB_USERNAME=$(DB_USERNAME)
-                  DB_PASSWORD=$(DB_PASSWORD)
-                  DB_NAME=$(DB_NAME)
-                  DB_TRUST_CERT=$(DB_TRUST_CERT)
-                  CORS_ORIGINS=$(CORS_ORIGINS)
+          # Usa az CLI puro: não requer Docker nem PowerShell Core (pwsh)
+          - task: AzureCLI@2
+            displayName: 'Deploy → Azure Container Apps'
+            inputs:
+              azureSubscription: 'AzureServiceConnection'
+              scriptType: 'ps'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Busca a senha de admin do ACR para autorizar o pull da imagem
+                $acrPassword = az acr credential show --name $(acrName) --query "passwords[0].value" -o tsv
+
+                # Registra as credenciais do ACR no Container App (necessário para pull)
+                az containerapp registry set `
+                  --name $(containerAppName) `
+                  --resource-group $(resourceGroup) `
+                  --server $(acrName).azurecr.io `
+                  --username $(acrName) `
+                  --password $acrPassword
+
+                # Atualiza a imagem e injeta variáveis de ambiente
+                az containerapp update `
+                  --name $(containerAppName) `
+                  --resource-group $(resourceGroup) `
+                  --image $(acrName).azurecr.io/$(imageName):$(imageTag) `
+                  --set-env-vars `
+                    "NODE_ENV=production" `
+                    "DB_HOST=$(DB_HOST)" `
+                    "DB_PORT=$(DB_PORT)" `
+                    "DB_USERNAME=$(DB_USERNAME)" `
+                    "DB_PASSWORD=$(DB_PASSWORD)" `
+                    "DB_NAME=$(DB_NAME)" `
+                    "DB_TRUST_CERT=$(DB_TRUST_CERT)" `
+                    "CORS_ORIGINS=$(CORS_ORIGINS)"
