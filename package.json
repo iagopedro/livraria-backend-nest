@@ -16,7 +16,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "migration:run": "ts-node node_modules/.bin/typeorm migration:run -d src/config/data-source.ts",
-    "migration:revert": "ts-node node_modules/.bin/typeorm migration:revert -d src/config/data-source.ts"
+    "migration:revert": "ts-node node_modules/.bin/typeorm migration:revert -d src/config/data-source.ts",
+    "seed": "ts-node src/seeds/seed-livros.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
