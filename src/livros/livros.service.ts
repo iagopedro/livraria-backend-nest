@@ -86,21 +86,27 @@ export class LivrosService {
    * ConflictException → HTTP 409: indica que o recurso já existe.
    */
   async criar(dto: CriarLivroDto): Promise<Livro> {
-    // Verifica duplicidade de código antes de inserir
-    const existente = await this.livroRepositorio.findOne({
-      where: { codigo: dto.codigo },
-    });
+    // Gera o código automaticamente caso o frontend não o tenha enviado
+    const codigo = dto.codigo ?? (await this.gerarCodigo());
 
-    if (existente) {
-      throw new ConflictException(
-        `Já existe um livro com o código "${dto.codigo}".`,
-      );
+    // Verifica duplicidade apenas quando o código foi informado explicitamente
+    if (dto.codigo) {
+      const existente = await this.livroRepositorio.findOne({
+        where: { codigo },
+      });
+
+      if (existente) {
+        throw new ConflictException(
+          `Já existe um livro com o código "${codigo}".`,
+        );
+      }
     }
 
     // .create() cria uma instância da entidade (sem salvar ainda)
     // .save()   persiste de fato no banco (executa o INSERT)
     const novoLivro = this.livroRepositorio.create({
       ...dto,
+      codigo,
       descricao: dto.descricao ?? null,
     });
 

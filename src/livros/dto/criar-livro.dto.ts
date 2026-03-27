@@ -1,7 +1,7 @@
 import {
   IsString,
-  IsNotEmpty,
   IsOptional,
+  IsNotEmpty,
   IsInt,
   MinLength,
   MaxLength,
@@ -28,17 +28,17 @@ export class CriarLivroDto {
 
   /**
    * Código único no formato BK-AAAA-XXXX.
-   * @IsString() → deve ser uma string
-   * @IsNotEmpty() → não pode ser vazio ou apenas espaços
+   * Campo opcional: quando não informado, o backend gera automaticamente
+   * via gerarCodigo().
    */
-  @ApiProperty({
-    description: 'Código único no formato BK-AAAA-XXXX',
-    example: 'BK-2025-4321',
+  @ApiPropertyOptional({
+    description: 'Código único no formato BK-AAAA-XXXX (gerado automaticamente se omitido)',
+    example: 'BK-2026-4321',
   })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'O código é obrigatório.' })
   @MaxLength(20, { message: 'O código deve ter no máximo 20 caracteres.' })
-  codigo: string;
+  codigo?: string;
 
   /**
    * @MinLength(2) → mínimo de 2 caracteres (igual à validação do Angular)
